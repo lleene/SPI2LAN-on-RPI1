@@ -10,65 +10,69 @@
 #include <arpa/inet.h>
 #include <fstream>
 #include <cstring>
+#include <stdlib.h>
 
-#define TEST_LENGTH (1024*1024)
+#include <string.h> 
+#include <stdint.h>
+
+#define TEST_SIZE (0x3FF)
+#define T_REPEAT 1024
+
+static uint32_t TEST_ARRAY[TEST_SIZE];
 
 using namespace std;
 
 int main(int argc, char* argv[])
 {
 
-if (argc != 3)
-{
-   cout << "usage: cnt local_filename server_ip" << endl;
-   return -1;
-}
+    if (argc != 2)
+    {
+       cout << "usage: udp_send_data_stream server_ip" << endl;
+       return -1;
+    }
+    // Init Test Block
+    for(int i=0; i<TEST_SIZE;i++)
+    {
+        TEST_ARRAY[i]=(uint32_t)i;
+    }
+    
+    // Init Network connection
+    UDT::startup();
+    int64_t size;
+    struct addrinfo hints, *peer;
+    string service("9000");
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_flags = AI_PASSIVE;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    UDTSOCKET fhandle = UDT::socket(hints.ai_family, hints.ai_socktype, hints.ai_protocol);
+    if (0 != getaddrinfo(argv[1], service.c_str() , &hints, &peer))
+    {
+       cout << "incorrect server/peer address. " << argv[1] << endl;
+       return -1;
+    }
+    // connect to the server, implict bind
+    if (UDT::ERROR == UDT::connect(fhandle, peer->ai_addr, peer->ai_addrlen))
+    {
+        cout << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
+        return -1;
+    }
+    freeaddrinfo(peer);
 
+    // send data block size    
+    size = (int64_t)(TEST_SIZE*sizeof(uint32_t));
+    if (UDT::ERROR == UDT::send(fhandle, (char*)&size, sizeof(int64_t), 0)){
+        cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
+        return 0;}
+    // send data T_REPEAT times
+    for(int j = 0; j < T_REPEAT ; j++){
+	if (UDT::ERROR == UDT::send(fhandle, (char *)&Test_ARRAY, TEST_SIZE*sizeof(uint32_t), size)){
+	    cout << "sendfile: " << UDT::getlasterror().getErrorMessage() << endl;
+	    return 0;}
+    }
 
-UDT::startup();
-int64_t size, offset;
-struct addrinfo hints, *peer;
-string service("9000");
-memset(&hints, 0, sizeof(struct addrinfo));
-hints.ai_flags = AI_PASSIVE;
-hints.ai_family = AF_INET;
-hints.ai_socktype = SOCK_STREAM;
-
-UDTSOCKET fhandle = UDT::socket(hints.ai_family, hints.ai_socktype, hints.ai_protocol);
-
-   if (0 != getaddrinfo(argv[2], service.c_str() , &hints, &peer))
-   {
-      cout << "incorrect server/peer address. " << argv[1] << ":" << argv[2] << endl;
-      return -1;
-   }
-
-// connect to the server, implict bind
-   if (UDT::ERROR == UDT::connect(fhandle, peer->ai_addr, peer->ai_addrlen))
-   {
-      cout << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
-      return -1;
-   }
-   freeaddrinfo(peer);
-
-   char data[TEST_LENGTH];
-   const char* pntr = data;
-   size = (int64_t)sizeof(data);
-   for(int i = 0; i<TEST_LENGTH; i++) data[i]=(char)i*i;
-
-   if (UDT::ERROR == UDT::send(fhandle, (char*)&size, sizeof(int64_t), 0)){
-      cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 0;}
-
-   for(int i = 0; i < TEST_LENGTH ; i++){
-   offset=0;
-   if (UDT::ERROR == UDT::send(fhandle, pntr, sizeof(data), size)){
-      cout << "sendfile: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 0;}
-   }
-
-
-   UDT::close(fhandle);
-   UDT::cleanup();
-
-return 1;
+    printf("Clean Exit \n");
+    UDT::close(fhandle);
+    UDT::cleanup();
+    return 1;
 }
