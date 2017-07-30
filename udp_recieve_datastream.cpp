@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
    // Check for usage
    if (argc != 2)
    {
-      cout << "usage: serv local_filename" << endl;
+      cout << "usage: udp_recieve_datastream local_filename" << endl;
       return -1;
    }
 
